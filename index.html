@@ -180,28 +180,13 @@
             return (10 - (sum % 10)) % 10;
         }
 
-        // 텍스트를 SVG 패스로 변환하는 함수
-        function getTextPath(text, x, y) {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            ctx.font = '12px Arial';
-            
-            let d = `M ${x} ${y} `;
-            let currentX = x;
-            
-            // 각 문자를 직선으로 그리기
-            for (let char of text) {
-                const metrics = ctx.measureText(char);
-                d += `M ${currentX} ${y} L ${currentX + metrics.width} ${y} `;
-                currentX += metrics.width + 1;
-            }
-            
-            return d;
-        }
-
-        // 바코드 벡터 패스 생성 함수
+        // 바코드를 벡터 패스로 변환하는 함수
         function generateBarcodeVectorPath(barcodeNumber) {
             const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const scale = 2; // 해상도 향상을 위한 스케일
+
+            // 바코드 생성
             JsBarcode(canvas, barcodeNumber, {
                 format: "EAN13",
                 width: 2,
@@ -209,26 +194,63 @@
                 displayValue: false
             });
 
-            // 바코드 데이터를 SVG 패스로 변환
-            const ctx = canvas.getContext('2d');
+            // 이미지 데이터를 벡터 패스로 변환
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             const data = imageData.data;
-            let d = '';
-            
-            // 픽셀 데이터를 SVG 패스로 변환
+            let paths = [];
+            let currentPath = '';
+            let isDrawing = false;
+
             for (let y = 0; y < canvas.height; y++) {
                 for (let x = 0; x < canvas.width; x++) {
                     const idx = (y * canvas.width + x) * 4;
-                    if (data[idx] === 0) { // 검은색 픽셀인 경우
-                        d += `M ${x} ${y} h 1 v 1 h -1 z `;
+                    const isBlack = data[idx] === 0;
+
+                    if (isBlack && !isDrawing) {
+                        // 새로운 패스 시작
+                        currentPath = `M ${x * scale} ${y * scale}`;
+                        isDrawing = true;
+                    } else if (!isBlack && isDrawing) {
+                        // 패스 종료
+                        currentPath += ` L ${x * scale} ${y * scale} v ${scale} h ${-scale} z`;
+                        paths.push(currentPath);
+                        isDrawing = false;
                     }
                 }
             }
-            
-            return `<path d="${d}" fill="black"/>`;
+
+            return paths.join(' ');
         }
-                // 바코드 생성 함수
-                function generateBarcode() {
+
+        // 텍스트를 벡터 패스로 변환하는 함수
+        function getTextPath(text, x, y) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            ctx.font = '12px Arial';
+            
+            let d = '';
+            let currentX = x;
+            
+            // 각 문자를 개별 벡터로 변환
+            for (let char of text) {
+                const metrics = ctx.measureText(char);
+                const charWidth = metrics.width;
+                
+                // 문자의 기본 외곽선을 직선으로 표현
+                d += `M ${currentX} ${y} `;
+                d += `L ${currentX + charWidth} ${y} `;
+                d += `L ${currentX + charWidth} ${y - 12} `;
+                d += `L ${currentX} ${y - 12} `;
+                d += 'Z ';
+                
+                currentX += charWidth + 1;
+            }
+            
+            return d;
+        }
+
+        // 바코드 생성 함수
+        function generateBarcode() {
             const barcodeInput = document.getElementById('barcodeNumber').value.trim();
             
             // 기본 검증
@@ -303,8 +325,9 @@
                 alert('바코드 생성 중 오류가 발생했습니다.');
             }
         }
-                // SVG 저장 함수
-                function exportToSVG() {
+
+        // SVG 저장 함수
+        function exportToSVG() {
             const preview = document.getElementById('barcodePreview');
             const barcodeNumber = document.getElementById('barcodeNumber').value;
             
@@ -327,33 +350,42 @@
                 const productNumber = document.getElementById('productNumber').value;
                 const lotNumber = document.getElementById('lotNumber').value;
 
-                // 벡터화된 SVG 생성
+                // AI 호환 SVG 생성
                 const svgData = `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
 <svg xmlns="http://www.w3.org/2000/svg" 
      xmlns:xlink="http://www.w3.org/1999/xlink"
      xmlns:ai="http://ns.adobe.com/AdobeIllustrator/10.0/"
+     xmlns:graph="http://ns.adobe.com/Graphs/1.0/"
+     xmlns:i="http://ns.adobe.com/AdobeIllustrator/10.0/"
      version="1.1"
-     width="${canvas.width}" 
-     height="${canvas.height + 100}"
-     viewBox="0 0 ${canvas.width} ${canvas.height + 100}">
+     x="0px" 
+     y="0px"
+     width="${canvas.width}px" 
+     height="${canvas.height + 100}px"
+     viewBox="0 0 ${canvas.width} ${canvas.height + 100}"
+     enable-background="new 0 0 ${canvas.width} ${canvas.height + 100}"
+     xml:space="preserve">
+     
+    <metadata>
+        <sfw xmlns="http://ns.adobe.com/SaveForWeb/1.0/">
+            <slices/>
+            <sliceSourceBounds y="${-(canvas.height + 100)}" x="0" width="${canvas.width}" height="${canvas.height + 100}"/>
+        </sfw>
+    </metadata>
     
-    <defs>
+    <g id="Layer_1" i:layer="yes" i:dimmedPercent="50" i:rgbTrio="#4F008000FFFF">
         <g id="Barcode">
             ${generateBarcodeVectorPath(barcodeNumber)}
         </g>
-    </defs>
-
-    <g id="BarcodeLayer" ai:seqID="1">
-        <use xlink:href="#Barcode" x="0" y="0"/>
-    </g>
-    
-    <g id="TextLayer" ai:seqID="2">
-        <path d="${getTextPath(`상품명: ${productName} / ${productNameEng}`, 10, canvas.height + 20)}" fill="black"/>
-        <path d="${getTextPath(`옵션명: ${optionName} / ${optionNameEng}`, 10, canvas.height + 40)}" fill="black"/>
-        <path d="${getTextPath(`상품번호: ${productNumber}`, 10, canvas.height + 60)}" fill="black"/>
-        <path d="${getTextPath(`로트번호: ${lotNumber}`, 10, canvas.height + 80)}" fill="black"/>
-        <path d="${getTextPath(`바코드: ${barcodeNumber}`, 10, canvas.height + 100)}" fill="black"/>
+        
+        <g id="ProductInfo">
+            <path d="${getTextPath(`상품명: ${productName} / ${productNameEng}`, 10, canvas.height + 20)}" fill="#000000"/>
+            <path d="${getTextPath(`옵션명: ${optionName} / ${optionNameEng}`, 10, canvas.height + 40)}" fill="#000000"/>
+            <path d="${getTextPath(`상품번호: ${productNumber}`, 10, canvas.height + 60)}" fill="#000000"/>
+            <path d="${getTextPath(`로트번호: ${lotNumber}`, 10, canvas.height + 80)}" fill="#000000"/>
+            <path d="${getTextPath(`바코드: ${barcodeNumber}`, 10, canvas.height + 100)}" fill="#000000"/>
+        </g>
     </g>
 </svg>`;
 
@@ -372,8 +404,9 @@
                 alert('SVG 저장 중 오류가 발생했습니다.');
             }
         }
-                // AI 저장 함수
-                async function exportToAI() {
+
+        // AI 저장 함수
+        async function exportToAI() {
             const preview = document.getElementById('barcodePreview');
             const barcodeNumber = document.getElementById('barcodeNumber').value;
             
@@ -461,8 +494,9 @@
                 alert('AI 파일 생성 중 오류가 발생했습니다.');
             }
         }
-                // PDF 저장 함수
-                async function exportToPDF() {
+
+        // PDF 저장 함수
+        async function exportToPDF() {
             const preview = document.getElementById('barcodePreview');
             const barcodeNumber = document.getElementById('barcodeNumber').value;
             
