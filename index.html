@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
@@ -548,6 +548,617 @@ CP F`);
             if (event.data === 'closeEditor') {
                 document.getElementById('adobe-express-editor').style.display = 'none';
             }
+        });
+
+    </script>
+</body>
+</html> -->
+
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>바코드 라벨 생성기</title>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <style>
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+
+        .input-section {
+            background-color: #f5f5f5;
+            padding: 30px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: all 0.3s;
+            box-sizing: border-box;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+        }
+
+        .preview-section {
+            margin: 30px 0;
+            padding: 30px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .barcode-item {
+            text-align: center;
+            margin: 20px 0;
+            padding: 30px;
+            background-color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-radius: 8px;
+        }
+
+        .barcode-item p {
+            margin: 10px 0;
+            font-size: 14px;
+            line-height: 1.5;
+            color: #333;
+        }
+
+        .button-section {
+            grid-column: 1 / -1;
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+            min-width: 120px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .info-text {
+            font-size: 12px;
+            color: #666;
+            margin-top: 6px;
+            margin-left: 4px;
+        }
+
+        .error {
+            color: #dc3545;
+            font-size: 12px;
+            margin-top: 5px;
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .input-section {
+                grid-template-columns: 1fr;
+                gap: 15px;
+                padding: 20px;
+            }
+
+            .button-section {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            button {
+                width: 100%;
+            }
+
+            .container {
+                padding: 10px;
+            }
+        }
+
+        #adobe-express-editor {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1000;
+            background-color: rgba(0,0,0,0.8);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>바코드 라벨 생성기</h1>
+        
+        <div class="input-section">
+            <div class="input-group">
+                <label for="productName">상품명 (한글)</label>
+                <input type="text" id="productName" placeholder="상품명을 입력하세요">
+            </div>
+            <div class="input-group">
+                <label for="productNameEng">상품명 (영문)</label>
+                <input type="text" id="productNameEng" placeholder="Enter product name">
+            </div>
+            <div class="input-group">
+                <label for="optionName">옵션명 (한글)</label>
+                <input type="text" id="optionName" placeholder="옵션명을 입력하세요">
+            </div>
+            <div class="input-group">
+                <label for="optionNameEng">옵션명 (영문)</label>
+                <input type="text" id="optionNameEng" placeholder="Enter option name">
+            </div>
+            <div class="input-group">
+                <label for="productNumber">상품번호</label>
+                <input type="text" id="productNumber" placeholder="상품번호를 입력하세요">
+            </div>
+            <div class="input-group">
+                <label for="lotNumber">로트번호</label>
+                <input type="text" id="lotNumber" placeholder="로트번호를 입력하세요">
+            </div>
+            <div class="input-group">
+                <label for="barcodeNumber">바코드 번호 (13자리)</label>
+                <input type="text" id="barcodeNumber" placeholder="880으로 시작하는 13자리" maxlength="13">
+                <div class="info-text">* 예시: 8801234567893</div>
+            </div>
+            <div class="button-section">
+                <button onclick="generateBarcode()">바코드 생성</button>
+                <button onclick="exportToSVG()">SVG 저장</button>
+                <button onclick="exportToEPS()">EPS 저장</button>
+                <button onclick="exportToPDF()">PDF 저장</button>
+            </div>
+        </div>
+
+        <div class="preview-section">
+            <div id="barcodePreview"></div>
+        </div>
+    </div>
+
+    <div id="adobe-express-editor"></div>
+
+    <script>
+        // 바코드를 벡터 패스로 변환하는 함수 (SVG용)
+        function generateBarcodeVectorPathSVG(barcodeNumber) {
+            const canvas = document.createElement('canvas');
+            JsBarcode(canvas, barcodeNumber, {
+                format: "EAN13",
+                width: 2,
+                height: 100,
+                displayValue: false
+            });
+
+            const ctx = canvas.getContext('2d');
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            let paths = [];
+            let isDrawing = false;
+            let startX = 0;
+
+            for (let x = 0; x < canvas.width; x++) {
+                let isBar = false;
+                for (let y = 0; y < canvas.height; y++) {
+                    const idx = (y * canvas.width + x) * 4;
+                    if (data[idx] === 0) {
+                        isBar = true;
+                        break;
+                    }
+                }
+
+                if (isBar && !isDrawing) {
+                    startX = x;
+                    isDrawing = true;
+                } else if ((!isBar || x === canvas.width - 1) && isDrawing) {
+                    paths.push(`M ${startX} 0 L ${x} 0 L ${x} ${canvas.height} L ${startX} ${canvas.height} Z`);
+                    isDrawing = false;
+                }
+            }
+
+            return paths.join(' ');
+        }
+                // 바코드를 벡터 패스로 변환하는 함수 (EPS용)
+                function generateBarcodeVectorPathEPS(barcodeNumber) {
+            const canvas = document.createElement('canvas');
+            JsBarcode(canvas, barcodeNumber, {
+                format: "EAN13",
+                width: 2,
+                height: 100,
+                displayValue: false
+            });
+
+            const ctx = canvas.getContext('2d');
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            let paths = [];
+            let isDrawing = false;
+            let startX = 0;
+
+            for (let x = 0; x < canvas.width; x++) {
+                let isBar = false;
+                for (let y = 0; y < canvas.height; y++) {
+                    const idx = (y * canvas.width + x) * 4;
+                    if (data[idx] === 0) {
+                        isBar = true;
+                        break;
+                    }
+                }
+
+                if (isBar && !isDrawing) {
+                    startX = x;
+                    isDrawing = true;
+                } else if ((!isBar || x === canvas.width - 1) && isDrawing) {
+                    paths.push(`
+newpath
+${startX} 0 moveto
+${x} 0 lineto
+${x} ${canvas.height} lineto
+${startX} ${canvas.height} lineto
+closepath
+fill`);
+                    isDrawing = false;
+                }
+            }
+
+            return paths.join('\n');
+        }
+
+        // 체크섬 계산 함수
+        function calculateCheckDigit(barcode12) {
+            let sum = 0;
+            for (let i = 0; i < 12; i++) {
+                sum += parseInt(barcode12[i]) * (i % 2 === 0 ? 1 : 3);
+            }
+            return (10 - (sum % 10)) % 10;
+        }
+
+        // 바코드 생성 함수
+        function generateBarcode() {
+            const barcodeInput = document.getElementById('barcodeNumber').value.trim();
+            
+            if (!barcodeInput) {
+                alert('바코드 번호를 입력해주세요.');
+                return;
+            }
+
+            const cleanedBarcode = barcodeInput.replace(/[^\d]/g, '');
+
+            if (cleanedBarcode.length !== 13) {
+                alert('바코드 번호는 13자리 숫자여야 합니다.');
+                return;
+            }
+
+            if (!cleanedBarcode.startsWith('880')) {
+                alert('한국 바코드는 880으로 시작해야 합니다.');
+                return;
+            }
+
+            const barcode12 = cleanedBarcode.slice(0, 12);
+            const providedCheckDigit = parseInt(cleanedBarcode[12]);
+            const calculatedCheckDigit = calculateCheckDigit(barcode12);
+
+            if (providedCheckDigit !== calculatedCheckDigit) {
+                const correctBarcode = barcode12 + calculatedCheckDigit;
+                document.getElementById('barcodeNumber').value = correctBarcode;
+                alert(`체크섬이 수정되었습니다. 새로운 바코드 번호: ${correctBarcode}`);
+                return;
+            }
+
+            const previewDiv = document.getElementById('barcodePreview');
+            previewDiv.innerHTML = '';
+
+            const barcodeContainer = document.createElement('div');
+            barcodeContainer.className = 'barcode-item';
+
+            try {
+                const canvas = document.createElement('canvas');
+                
+                JsBarcode(canvas, cleanedBarcode, {
+                    format: "EAN13",
+                    width: 2,
+                    height: 100,
+                    displayValue: true,
+                    fontSize: 14,
+                    margin: 10
+                });
+
+                const productName = document.getElementById('productName').value;
+                const productNameEng = document.getElementById('productNameEng').value;
+                const optionName = document.getElementById('optionName').value;
+                const optionNameEng = document.getElementById('optionNameEng').value;
+                const productNumber = document.getElementById('productNumber').value;
+                const lotNumber = document.getElementById('lotNumber').value;
+
+                barcodeContainer.innerHTML = `
+                    <p><strong>상품명:</strong> ${productName} / ${productNameEng}</p>
+                    <p><strong>옵션명:</strong> ${optionName} / ${optionNameEng}</p>
+                    <p><strong>상품번호:</strong> ${productNumber}</p>
+                    <p><strong>로트번호:</strong> ${lotNumber}</p>
+                `;
+                barcodeContainer.appendChild(canvas);
+                previewDiv.appendChild(barcodeContainer);
+            } catch (error) {
+                console.error(error);
+                alert('바코드 생성 중 오류가 발생했습니다.');
+            }
+        }
+                // SVG 저장 함수
+        function exportToSVG() {
+            const preview = document.getElementById('barcodePreview');
+            const barcodeNumber = document.getElementById('barcodeNumber').value;
+            
+            if (!preview.innerHTML) {
+                alert('먼저 바코드를 생성해주세요.');
+                return;
+            }
+
+            try {
+                const canvas = preview.querySelector('canvas');
+                if (!canvas) {
+                    throw new Error('바코드를 찾을 수 없습니다.');
+                }
+
+                // 제품 정보 가져오기
+                const productName = document.getElementById('productName').value;
+                const productNameEng = document.getElementById('productNameEng').value;
+                const optionName = document.getElementById('optionName').value;
+                const optionNameEng = document.getElementById('optionNameEng').value;
+                const productNumber = document.getElementById('productNumber').value;
+                const lotNumber = document.getElementById('lotNumber').value;
+
+                // SVG 생성
+                const svgData = `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns="http://www.w3.org/2000/svg" 
+     xmlns:xlink="http://www.w3.org/1999/xlink"
+     version="1.1"
+     width="${canvas.width}" 
+     height="${canvas.height + 100}"
+     viewBox="0 0 ${canvas.width} ${canvas.height + 100}">
+    <style>
+        text { font-family: Arial, sans-serif; font-size: 12px; }
+    </style>
+    <g id="Barcode">
+        <path d="${generateBarcodeVectorPathSVG(barcodeNumber)}" fill="black"/>
+    </g>
+    <g id="ProductInfo">
+        <text x="10" y="${canvas.height + 20}">상품명: ${productName} / ${productNameEng}</text>
+        <text x="10" y="${canvas.height + 40}">옵션명: ${optionName} / ${optionNameEng}</text>
+        <text x="10" y="${canvas.height + 60}">상품번호: ${productNumber}</text>
+        <text x="10" y="${canvas.height + 80}">로트번호: ${lotNumber}</text>
+        <text x="10" y="${canvas.height + 100}">바코드: ${barcodeNumber}</text>
+    </g>
+</svg>`;
+
+                const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `${barcodeNumber}.svg`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            } catch (error) {
+                console.error(error);
+                alert('SVG 저장 중 오류가 발생했습니다.');
+            }
+        }
+
+        // EPS 저장 함수
+        function exportToEPS() {
+            const preview = document.getElementById('barcodePreview');
+            const barcodeNumber = document.getElementById('barcodeNumber').value;
+            
+            if (!preview.innerHTML) {
+                alert('먼저 바코드를 생성해주세요.');
+                return;
+            }
+
+            try {
+                const canvas = preview.querySelector('canvas');
+                if (!canvas) {
+                    throw new Error('바코드를 찾을 수 없습니다.');
+                }
+
+                // 제품 정보 가져오기
+                const productName = document.getElementById('productName').value;
+                const productNameEng = document.getElementById('productNameEng').value;
+                const optionName = document.getElementById('optionName').value;
+                const optionNameEng = document.getElementById('optionNameEng').value;
+                const productNumber = document.getElementById('productNumber').value;
+                const lotNumber = document.getElementById('lotNumber').value;
+
+                // EPS 데이터 생성
+                const epsData = `%!PS-Adobe-3.0 EPSF-3.0
+%%BoundingBox: 0 0 ${canvas.width} ${canvas.height + 100}
+%%Creator: Barcode Generator
+%%Title: ${barcodeNumber}
+%%EndComments
+
+/Arial-Bold findfont 12 scalefont setfont
+0 0 0 setrgbcolor
+
+% 바코드 생성
+${generateBarcodeVectorPathEPS(barcodeNumber)}
+
+% 텍스트 정보
+10 ${canvas.height + 20} moveto (상품명: ${productName} / ${productNameEng}) show
+10 ${canvas.height + 40} moveto (옵션명: ${optionName} / ${optionNameEng}) show
+10 ${canvas.height + 60} moveto (상품번호: ${productNumber}) show
+10 ${canvas.height + 80} moveto (로트번호: ${lotNumber}) show
+10 ${canvas.height + 100} moveto (바코드: ${barcodeNumber}) show
+
+%%EOF`;
+
+                const blob = new Blob([epsData], { type: 'application/postscript' });
+                const url = URL.createObjectURL(blob);
+                
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `${barcodeNumber}.eps`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            } catch (error) {
+                console.error('EPS 저장 오류:', error);
+                alert('EPS 파일 생성 중 오류가 발생했습니다.');
+            }
+        }
+                // PDF 저장 함수
+                async function exportToPDF() {
+            const preview = document.getElementById('barcodePreview');
+            const barcodeNumber = document.getElementById('barcodeNumber').value;
+            
+            if (!preview.innerHTML) {
+                alert('먼저 바코드를 생성해주세요.');
+                return;
+            }
+
+            try {
+                // 고해상도 설정으로 HTML을 캔버스로 변환
+                const canvas = await html2canvas(preview, {
+                    scale: 2,
+                    logging: false,
+                    useCORS: true,
+                    allowTaint: true,
+                    backgroundColor: '#ffffff'
+                });
+
+                const imageData = canvas.toDataURL('image/png', 1.0);
+
+                // PDF 생성
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF({
+                    orientation: 'portrait',
+                    unit: 'mm',
+                    format: 'a4',
+                    compress: true
+                });
+
+                // 이미지 크기 계산 (A4 크기에 맞춤)
+                const pageWidth = doc.internal.pageSize.getWidth();
+                const pageHeight = doc.internal.pageSize.getHeight();
+                const aspectRatio = canvas.width / canvas.height;
+                
+                let imgWidth = pageWidth - 20; // 좌우 여백 10mm
+                let imgHeight = imgWidth / aspectRatio;
+
+                // 이미지가 너무 크면 높이 기준으로 조정
+                if (imgHeight > pageHeight - 20) { // 상하 여백 10mm
+                    imgHeight = pageHeight - 20;
+                    imgWidth = imgHeight * aspectRatio;
+                }
+
+                // 중앙 정렬을 위한 위치 계산
+                const x = (pageWidth - imgWidth) / 2;
+                const y = (pageHeight - imgHeight) / 2;
+
+                // 이미지 추가
+                doc.addImage(imageData, 'PNG', x, y, imgWidth, imgHeight, undefined, 'FAST');
+
+                // PDF 저장
+                doc.save(`${barcodeNumber}.pdf`);
+
+            } catch (error) {
+                console.error('PDF 저장 오류:', error);
+                alert('PDF 파일 생성 중 오류가 발생했습니다.');
+            }
+        }
+
+        // 바코드 입력 필드 이벤트 리스너
+        document.getElementById('barcodeNumber').addEventListener('input', function(e) {
+            // 숫자만 입력 가능하도록
+            this.value = this.value.replace(/[^\d]/g, '');
+            
+            // 13자리 제한
+            if (this.value.length > 13) {
+                this.value = this.value.slice(0, 13);
+            }
+
+            // 880으로 시작하도록 유도
+            if (this.value.length >= 3 && !this.value.startsWith('880')) {
+                this.value = '880' + this.value.slice(3);
+            }
+        });
+
+        // 입력 필드 포커스 효과
+        document.querySelectorAll('.input-group input').forEach(input => {
+            input.addEventListener('focus', function() {
+                this.parentElement.classList.add('focused');
+            });
+
+            input.addEventListener('blur', function() {
+                this.parentElement.classList.remove('focused');
+            });
+        });
+
+        // 페이지 로드 시 초기화
+        window.addEventListener('load', function() {
+            // 입력 필드 초기화
+            document.querySelectorAll('input').forEach(input => {
+                input.value = '';
+            });
+
+            // 미리보기 영역 초기화
+            document.getElementById('barcodePreview').innerHTML = '';
         });
 
     </script>
