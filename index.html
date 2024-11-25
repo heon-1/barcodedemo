@@ -3,13 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <title>바코드 생성 데모</title>
-    <!-- 외부 라이브러리 -->
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
     <script src="https://sdk.cc-embed.adobe.com/v2/CCEverywhere.js"></script>
     <style>
-        /* 컨테이너 스타일 */
         .container {
             max-width: 800px;
             margin: 0 auto;
@@ -17,7 +15,6 @@
             font-family: Arial, sans-serif;
         }
 
-        /* 입력 섹션 스타일 */
         .input-section {
             background-color: #f5f5f5;
             padding: 20px;
@@ -28,7 +25,6 @@
             gap: 15px;
         }
 
-        /* 입력 그룹 스타일 */
         .input-group {
             margin-bottom: 15px;
         }
@@ -41,14 +37,13 @@
         }
 
         .input-group input {
-            width: 92%;
+            width: 100%;
             padding: 8px;
             border: 1px solid #ddd;
             border-radius: 4px;
             font-size: 14px;
         }
 
-        /* 미리보기 섹션 스타일 */
         .preview-section {
             margin: 20px 0;
             padding: 20px;
@@ -57,7 +52,6 @@
             background-color: white;
         }
 
-        /* 바코드 아이템 스타일 */
         .barcode-item {
             text-align: center;
             margin: 20px 0;
@@ -66,14 +60,12 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
-        /* 버튼 섹션 스타일 */
         .button-section {
             grid-column: 1 / -1;
             display: flex;
             gap: 10px;
         }
 
-        /* 버튼 스타일 */
         button {
             background-color: #007bff;
             color: white;
@@ -89,7 +81,6 @@
             background-color: #0056b3;
         }
 
-        /* 기타 스타일 */
         .export-section {
             margin-top: 20px;
         }
@@ -114,14 +105,14 @@
             width: 100%;
             height: 100%;
             z-index: 1000;
+            background-color: rgba(0,0,0,0.8);
         }
     </style>
 </head>
-<body>
+<body></body>
     <div class="container">
         <h1>바코드 라벨 생성기</h1>
         
-        <!-- 입력 폼 섹션 -->
         <div class="input-section">
             <div class="input-group">
                 <label for="productName">상품명 (한글)</label>
@@ -159,15 +150,12 @@
                 <button onclick="exportToPDF()">PDF 저장</button>
             </div>
         </div>
-
-        <!-- 미리보기 섹션 -->
         <div class="preview-section">
             <div id="barcodePreview"></div>
         </div>
     </div>
 
     <div id="adobe-express-editor"></div>
-
     <script>
         // Adobe Express SDK 전역 변수
         let adobeEditor = null;
@@ -192,39 +180,79 @@
             return (10 - (sum % 10)) % 10;
         }
 
-        // 바코드 생성 함수
-        function generateBarcode() {
-            const barcodeInput = document.getElementById('barcodeNumber').value.trim();
+        // 텍스트를 SVG 패스로 변환하는 함수
+        function getTextPath(text, x, y) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            ctx.font = '12px Arial';
             
-            // 입력값 검증
-            if (!validateBarcodeInput(barcodeInput)) return;
-
-            const cleanedBarcode = barcodeInput.replace(/[^\d]/g, '');
-            const previewDiv = document.getElementById('barcodePreview');
-            previewDiv.innerHTML = '';
-
-            createBarcodePreview(cleanedBarcode, previewDiv);
+            let d = `M ${x} ${y} `;
+            let currentX = x;
+            
+            // 각 문자를 직선으로 그리기
+            for (let char of text) {
+                const metrics = ctx.measureText(char);
+                d += `M ${currentX} ${y} L ${currentX + metrics.width} ${y} `;
+                currentX += metrics.width + 1;
+            }
+            
+            return d;
         }
 
-        // 바코드 입력값 검증 함수
-        function validateBarcodeInput(barcodeInput) {
+        // 바코드 벡터 패스 생성 함수
+        function generateBarcodeVectorPath(barcodeNumber) {
+            const canvas = document.createElement('canvas');
+            JsBarcode(canvas, barcodeNumber, {
+                format: "EAN13",
+                width: 2,
+                height: 100,
+                displayValue: false
+            });
+
+            // 바코드 데이터를 SVG 패스로 변환
+            const ctx = canvas.getContext('2d');
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            let d = '';
+            
+            // 픽셀 데이터를 SVG 패스로 변환
+            for (let y = 0; y < canvas.height; y++) {
+                for (let x = 0; x < canvas.width; x++) {
+                    const idx = (y * canvas.width + x) * 4;
+                    if (data[idx] === 0) { // 검은색 픽셀인 경우
+                        d += `M ${x} ${y} h 1 v 1 h -1 z `;
+                    }
+                }
+            }
+            
+            return `<path d="${d}" fill="black"/>`;
+        }
+                // 바코드 생성 함수
+                function generateBarcode() {
+            const barcodeInput = document.getElementById('barcodeNumber').value.trim();
+            
+            // 기본 검증
             if (!barcodeInput) {
                 alert('바코드 번호를 입력해주세요.');
-                return false;
+                return;
             }
 
+            // 숫자만 추출
             const cleanedBarcode = barcodeInput.replace(/[^\d]/g, '');
 
+            // 길이 검증
             if (cleanedBarcode.length !== 13) {
                 alert('바코드 번호는 13자리 숫자여야 합니다.');
-                return false;
+                return;
             }
 
+            // 국가 코드 검증 (880)
             if (!cleanedBarcode.startsWith('880')) {
                 alert('한국 바코드는 880으로 시작해야 합니다.');
-                return false;
+                return;
             }
 
+            // 체크섬 검증
             const barcode12 = cleanedBarcode.slice(0, 12);
             const providedCheckDigit = parseInt(cleanedBarcode[12]);
             const calculatedCheckDigit = calculateCheckDigit(barcode12);
@@ -233,21 +261,20 @@
                 const correctBarcode = barcode12 + calculatedCheckDigit;
                 document.getElementById('barcodeNumber').value = correctBarcode;
                 alert(`체크섬이 수정되었습니다. 새로운 바코드 번호: ${correctBarcode}`);
-                return false;
+                return;
             }
 
-            return true;
-        }
+            const previewDiv = document.getElementById('barcodePreview');
+            previewDiv.innerHTML = '';
 
-        // 바코드 미리보기 생성 함수
-        function createBarcodePreview(barcodeNumber, previewDiv) {
             const barcodeContainer = document.createElement('div');
             barcodeContainer.className = 'barcode-item';
 
             try {
+                // canvas 요소 생성
                 const canvas = document.createElement('canvas');
                 
-                JsBarcode(canvas, barcodeNumber, {
+                JsBarcode(canvas, cleanedBarcode, {
                     format: "EAN13",
                     width: 2,
                     height: 100,
@@ -256,8 +283,19 @@
                     margin: 10
                 });
 
-                const productInfo = getProductInfo();
-                barcodeContainer.innerHTML = generateProductInfoHTML(productInfo);
+                const productName = document.getElementById('productName').value;
+                const productNameEng = document.getElementById('productNameEng').value;
+                const optionName = document.getElementById('optionName').value;
+                const optionNameEng = document.getElementById('optionNameEng').value;
+                const productNumber = document.getElementById('productNumber').value;
+                const lotNumber = document.getElementById('lotNumber').value;
+
+                barcodeContainer.innerHTML = `
+                    <p><strong>상품명:</strong> ${productName} / ${productNameEng}</p>
+                    <p><strong>옵션명:</strong> ${optionName} / ${optionNameEng}</p>
+                    <p><strong>상품번호:</strong> ${productNumber}</p>
+                    <p><strong>로트번호:</strong> ${lotNumber}</p>
+                `;
                 barcodeContainer.appendChild(canvas);
                 previewDiv.appendChild(barcodeContainer);
             } catch (error) {
@@ -265,110 +303,13 @@
                 alert('바코드 생성 중 오류가 발생했습니다.');
             }
         }
-
-        // 제품 정보 가져오기 함수
-        function getProductInfo() {
-            return {
-                productName: document.getElementById('productName').value,
-                productNameEng: document.getElementById('productNameEng').value,
-                optionName: document.getElementById('optionName').value,
-                optionNameEng: document.getElementById('optionNameEng').value,
-                productNumber: document.getElementById('productNumber').value,
-                lotNumber: document.getElementById('lotNumber').value
-            };
-        }
-
-        // 제품 정보 HTML 생성 함수
-        function generateProductInfoHTML(info) {
-            return `
-                <p><strong>상품명:</strong> ${info.productName} / ${info.productNameEng}</p>
-                <p><strong>옵션명:</strong> ${info.optionName} / ${info.optionNameEng}</p>
-                <p><strong>상품번호:</strong> ${info.productNumber}</p>
-                <p><strong>로트번호:</strong> ${info.lotNumber}</p>
-            `;
-        }
-
-        // SVG 저장 함수
-        function exportToSVG() {
+                // SVG 저장 함수
+                function exportToSVG() {
             const preview = document.getElementById('barcodePreview');
             const barcodeNumber = document.getElementById('barcodeNumber').value;
             
             if (!preview.innerHTML) {
                 alert('먼저 바코드를 생성해주세요.');
-                return;
-            }
-
-            try {
-                const canvas = preview.querySelector('canvas');
-                if (!canvas) throw new Error('바코드를 찾을 수 없습니다.');
-
-                const productInfo = getProductInfo();
-                const svgString = generateSVGString(canvas, productInfo, barcodeNumber);
-                downloadSVG(svgString, barcodeNumber);
-            } catch (error) {
-                console.error(error);
-                alert('SVG 저장 중 오류가 발생했습니다.');
-            }
-        }
-
-        // SVG 문자열 생성 함수
-        function generateSVGString(canvas, info, barcodeNumber) {
-            return `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
-<svg xmlns="http://www.w3.org/2000/svg" 
-     xmlns:xlink="http://www.w3.org/1999/xlink"
-     width="${canvas.width}" 
-     height="${canvas.height + 100}"
-     version="1.1"
-     viewBox="0 0 ${canvas.width} ${canvas.height + 100}">
-    <defs/>
-    <g id="BarcodeLayer">
-        <image x="0" y="0" 
-               width="${canvas.width}" 
-               height="${canvas.height}"
-               xlink:href="${canvas.toDataURL('image/png')}"/>
-    </g>
-    <g id="TextLayer" font-family="Arial" font-size="12">
-        <text x="10" y="${canvas.height + 20}">
-            <tspan x="10" dy="0">상품명: ${info.productName} / ${info.productNameEng}</tspan>
-        </text>
-        <text x="10" y="${canvas.height + 40}">
-            <tspan x="10" dy="0">옵션명: ${info.optionName} / ${info.optionNameEng}</tspan>
-        </text>
-        <text x="10" y="${canvas.height + 60}">
-            <tspan x="10" dy="0">상품번호: ${info.productNumber}</tspan>
-        </text>
-        <text x="10" y="${canvas.height + 80}">
-            <tspan x="10" dy="0">로트번호: ${info.lotNumber}</tspan>
-        </text>
-        <text x="10" y="${canvas.height + 100}">
-            <tspan x="10" dy="0">바코드: ${barcodeNumber}</tspan>
-        </text>
-    </g>
-</svg>`;
-        }
-
-        // SVG 다운로드 함수
-        function downloadSVG(svgString, barcodeNumber) {
-            const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `${barcodeNumber}.svg`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-        }
-
-        // AI 저장 함수
-        async function exportToAI() {
-            const preview = document.getElementById('barcodePreview');
-            const barcodeNumber = document.getElementById('barcodeNumber').value;
-            
-            if (!preview.innerHTML) {
-                alert('먼저 바코드를 생성���주세요.');
                 return;
             }
 
@@ -386,69 +327,142 @@
                 const productNumber = document.getElementById('productNumber').value;
                 const lotNumber = document.getElementById('lotNumber').value;
 
-                // SVG 데이터 생성
-                const svgData = `<?xml version="1.0" encoding="UTF-8"?>
+                // 벡터화된 SVG 생성
+                const svgData = `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
 <svg xmlns="http://www.w3.org/2000/svg" 
      xmlns:xlink="http://www.w3.org/1999/xlink"
+     xmlns:ai="http://ns.adobe.com/AdobeIllustrator/10.0/"
+     version="1.1"
      width="${canvas.width}" 
-     height="${canvas.height + 100}">
-    <g id="BarcodeLayer">
-        <image x="0" y="0" 
-               width="${canvas.width}" 
-               height="${canvas.height}"
-               xlink:href="${canvas.toDataURL('image/png')}"/>
+     height="${canvas.height + 100}"
+     viewBox="0 0 ${canvas.width} ${canvas.height + 100}">
+    
+    <defs>
+        <g id="Barcode">
+            ${generateBarcodeVectorPath(barcodeNumber)}
+        </g>
+    </defs>
+
+    <g id="BarcodeLayer" ai:seqID="1">
+        <use xlink:href="#Barcode" x="0" y="0"/>
     </g>
-    <g id="TextLayer" font-family="Arial" font-size="12">
-        <text x="10" y="${canvas.height + 20}">
-            <tspan x="10" dy="0">상품명: ${productName} / ${productNameEng}</tspan>
-        </text>
-        <text x="10" y="${canvas.height + 40}">
-            <tspan x="10" dy="0">옵션명: ${optionName} / ${optionNameEng}</tspan>
-        </text>
-        <text x="10" y="${canvas.height + 60}">
-            <tspan x="10" dy="0">상품번호: ${productNumber}</tspan>
-        </text>
-        <text x="10" y="${canvas.height + 80}">
-            <tspan x="10" dy="0">로트번호: ${lotNumber}</tspan>
-        </text>
+    
+    <g id="TextLayer" ai:seqID="2">
+        <path d="${getTextPath(`상품명: ${productName} / ${productNameEng}`, 10, canvas.height + 20)}" fill="black"/>
+        <path d="${getTextPath(`옵션명: ${optionName} / ${optionNameEng}`, 10, canvas.height + 40)}" fill="black"/>
+        <path d="${getTextPath(`상품번호: ${productNumber}`, 10, canvas.height + 60)}" fill="black"/>
+        <path d="${getTextPath(`로트번호: ${lotNumber}`, 10, canvas.height + 80)}" fill="black"/>
+        <path d="${getTextPath(`바코드: ${barcodeNumber}`, 10, canvas.height + 100)}" fill="black"/>
     </g>
 </svg>`;
 
-                try {
-                    // 이미 초기화된 에디터가 있으면 재사용
-                    if (!adobeEditor) {
-                        adobeEditor = await CCEverywhere.initialize(adobeExpressConfig);
-                    }
+                const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `${barcodeNumber}.svg`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            } catch (error) {
+                console.error(error);
+                alert('SVG 저장 중 오류가 발생했습니다.');
+            }
+        }
+                // AI 저장 함수
+                async function exportToAI() {
+            const preview = document.getElementById('barcodePreview');
+            const barcodeNumber = document.getElementById('barcodeNumber').value;
+            
+            if (!preview.innerHTML) {
+                alert('먼저 바코드를 생성해주세요.');
+                return;
+            }
 
-                    // 편집기에 SVG 데이터 전달
-                    await adobeEditor.openFile({
-                        data: svgData,
-                        mimeType: 'image/svg+xml',
-                        filename: `${barcodeNumber}.svg`
-                    });
-
-                } catch (error) {
-                    // 에디터 초기화 오류 시 재시도
-                    console.error('에디터 초기화 오류:', error);
-                    adobeEditor = null;
-                    
-                    // 다시 시도
-                    adobeEditor = await CCEverywhere.initialize(adobeExpressConfig);
-                    await adobeEditor.openFile({
-                        data: svgData,
-                        mimeType: 'image/svg+xml',
-                        filename: `${barcodeNumber}.svg`
-                    });
+            try {
+                const canvas = preview.querySelector('canvas');
+                if (!canvas) {
+                    throw new Error('바코드를 찾을 수 없습니다.');
                 }
+
+                // 제품 정보 가져오기
+                const productName = document.getElementById('productName').value;
+                const productNameEng = document.getElementById('productNameEng').value;
+                const optionName = document.getElementById('optionName').value;
+                const optionNameEng = document.getElementById('optionNameEng').value;
+                const productNumber = document.getElementById('productNumber').value;
+                const lotNumber = document.getElementById('lotNumber').value;
+
+                // 벡터화된 SVG 생성
+                const svgData = `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns="http://www.w3.org/2000/svg" 
+     xmlns:xlink="http://www.w3.org/1999/xlink"
+     xmlns:ai="http://ns.adobe.com/AdobeIllustrator/10.0/"
+     version="1.1"
+     width="${canvas.width}" 
+     height="${canvas.height + 100}"
+     viewBox="0 0 ${canvas.width} ${canvas.height + 100}">
+    
+    <defs>
+        <g id="Barcode">
+            ${generateBarcodeVectorPath(barcodeNumber)}
+        </g>
+    </defs>
+
+    <g id="BarcodeLayer" ai:seqID="1">
+        <use xlink:href="#Barcode" x="0" y="0"/>
+    </g>
+    
+    <g id="TextLayer" ai:seqID="2">
+        <path d="${getTextPath(`상품명: ${productName} / ${productNameEng}`, 10, canvas.height + 20)}" fill="black"/>
+        <path d="${getTextPath(`옵션명: ${optionName} / ${optionNameEng}`, 10, canvas.height + 40)}" fill="black"/>
+        <path d="${getTextPath(`상품번호: ${productNumber}`, 10, canvas.height + 60)}" fill="black"/>
+        <path d="${getTextPath(`로트번호: ${lotNumber}`, 10, canvas.height + 80)}" fill="black"/>
+        <path d="${getTextPath(`바코드: ${barcodeNumber}`, 10, canvas.height + 100)}" fill="black"/>
+    </g>
+</svg>`;
+
+                // Adobe Express 편집기 초기화
+                const editor = await CCEverywhere.createDesignEditor({
+                    clientId: adobeExpressConfig.clientId,
+                    container: 'adobe-express-editor',
+                    locale: 'ko_KR',
+                    onLoad: () => {
+                        console.log('Editor loaded');
+                    },
+                    onError: (error) => {
+                        console.error('Editor error:', error);
+                    }
+                });
+
+                // SVG 파일 생성
+                const blob = new Blob([svgData], { type: 'image/svg+xml' });
+                const file = new File([blob], `${barcodeNumber}.svg`, { type: 'image/svg+xml' });
+
+                // 편집기에 파일 추가
+                await editor.addFile({
+                    file: file,
+                    options: {
+                        format: 'svg',
+                        renderAtNaturalSize: true,
+                        outputFormat: 'ai'
+                    }
+                });
+
+                // 편집기 표시
+                document.getElementById('adobe-express-editor').style.display = 'block';
 
             } catch (error) {
                 console.error('Adobe Express 오류:', error);
                 alert('AI 파일 생성 중 오류가 발생했습니다.');
             }
         }
-
-        // PDF 저장 함수
-        async function exportToPDF() {
+                // PDF 저장 함수
+                async function exportToPDF() {
             const preview = document.getElementById('barcodePreview');
             const barcodeNumber = document.getElementById('barcodeNumber').value;
             
@@ -464,28 +478,24 @@
                     useCORS: true
                 });
 
-                await generatePDF(canvas, barcodeNumber);
+                const imageData = canvas.toDataURL('image/png');
+
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF({
+                    orientation: 'portrait',
+                    unit: 'mm',
+                    format: 'a4'
+                });
+
+                const imgWidth = 210;
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+                doc.addImage(imageData, 'PNG', 0, 0, imgWidth, imgHeight);
+                doc.save(`${barcodeNumber}.pdf`);
             } catch (error) {
                 console.error(error);
                 alert('PDF 저장 중 오류가 발생했습니다.');
             }
-        }
-
-        // PDF 생성 함수
-        async function generatePDF(canvas, barcodeNumber) {
-            const imageData = canvas.toDataURL('image/png');
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF({
-                orientation: 'portrait',
-                unit: 'mm',
-                format: 'a4'
-            });
-
-            const imgWidth = 210;
-            const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-            doc.addImage(imageData, 'PNG', 0, 0, imgWidth, imgHeight);
-            doc.save(`${barcodeNumber}.pdf`);
         }
 
         // 바코드 입력 필드 이벤트 리스너
@@ -496,14 +506,13 @@
             }
         });
 
-        // 페이지 로드 시 Adobe Express SDK 초기화
-        window.addEventListener('load', async () => {
-            try {
-                adobeEditor = await CCEverywhere.initialize(adobeExpressConfig);
-            } catch (error) {
-                console.error('Adobe Express SDK 초기화 오류:', error);
+        // Adobe Express 편집기 닫기 이벤트
+        window.addEventListener('message', function(event) {
+            if (event.data === 'closeEditor') {
+                document.getElementById('adobe-express-editor').style.display = 'none';
             }
         });
+
     </script>
 </body>
 </html>
