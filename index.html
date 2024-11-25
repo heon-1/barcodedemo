@@ -177,7 +177,7 @@
                 <input type="text" id="productName" placeholder="상품명을 입력하세요">
             </div>
             <div class="input-group">
-                <label for="productNameEng">상품명 (영문)</label>
+                <label for="productNameEng">상품명 (��문)</label>
                 <input type="text" id="productNameEng" placeholder="Enter product name">
             </div>
             <div class="input-group">
@@ -223,78 +223,84 @@
             JsBarcode(canvas, barcodeNumber, {
                 format: "EAN13",
                 width: 2,
-                height: 100,
-                displayValue: false
+                height: 80,
+                displayValue: false,
+                margin: 0
             });
 
             const ctx = canvas.getContext('2d');
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             const data = imageData.data;
             let paths = [];
-            let isDrawing = false;
-            let startX = 0;
+            let currentX = 0;
+            let isBar = false;
 
+            // 바코드 데이터 스캔
             for (let x = 0; x < canvas.width; x++) {
-                let isBar = false;
+                let hasBlackPixel = false;
                 for (let y = 0; y < canvas.height; y++) {
                     const idx = (y * canvas.width + x) * 4;
                     if (data[idx] === 0) {
-                        isBar = true;
+                        hasBlackPixel = true;
                         break;
                     }
                 }
 
-                if (isBar && !isDrawing) {
-                    startX = x;
-                    isDrawing = true;
-                } else if ((!isBar || x === canvas.width - 1) && isDrawing) {
-                    paths.push(`M ${startX} 0 L ${x} 0 L ${x} ${canvas.height} L ${startX} ${canvas.height} Z`);
-                    isDrawing = false;
+                if (hasBlackPixel && !isBar) {
+                    currentX = x;
+                    isBar = true;
+                } else if ((!hasBlackPixel || x === canvas.width - 1) && isBar) {
+                    const barWidth = x - currentX;
+                    paths.push(`M ${currentX} 0 h ${barWidth} v ${canvas.height} h -${barWidth} Z`);
+                    isBar = false;
                 }
             }
 
             return paths.join(' ');
         }
-                // 바코드를 벡터 패스로 변환하는 함수 (EPS용)
-                function generateBarcodeVectorPathEPS(barcodeNumber) {
+
+        // 바코드를 벡터 패스로 변환하는 함수 (EPS용)
+        function generateBarcodeVectorPathEPS(barcodeNumber) {
             const canvas = document.createElement('canvas');
             JsBarcode(canvas, barcodeNumber, {
                 format: "EAN13",
                 width: 2,
-                height: 100,
-                displayValue: false
+                height: 80,
+                displayValue: false,
+                margin: 0
             });
 
             const ctx = canvas.getContext('2d');
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             const data = imageData.data;
             let paths = [];
-            let isDrawing = false;
-            let startX = 0;
+            let currentX = 0;
+            let isBar = false;
 
             for (let x = 0; x < canvas.width; x++) {
-                let isBar = false;
+                let hasBlackPixel = false;
                 for (let y = 0; y < canvas.height; y++) {
                     const idx = (y * canvas.width + x) * 4;
                     if (data[idx] === 0) {
-                        isBar = true;
+                        hasBlackPixel = true;
                         break;
                     }
                 }
 
-                if (isBar && !isDrawing) {
-                    startX = x;
-                    isDrawing = true;
-                } else if ((!isBar || x === canvas.width - 1) && isDrawing) {
+                if (hasBlackPixel && !isBar) {
+                    currentX = x;
+                    isBar = true;
+                } else if ((!hasBlackPixel || x === canvas.width - 1) && isBar) {
+                    const barWidth = x - currentX;
                     paths.push(`
 newpath
-${startX} 0 moveto
-${x} 0 lineto
-${x} ${canvas.height} lineto
-${startX} ${canvas.height} lineto
+${currentX} 0 moveto
+${currentX + barWidth} 0 lineto
+${currentX + barWidth} ${canvas.height} lineto
+${currentX} ${canvas.height} lineto
 closepath
 fill`);
-                    isDrawing = false;
+                    isBar = false;
                 }
             }
 
@@ -314,8 +320,31 @@ fill`);
         function generateBarcode() {
             const barcodeInput = document.getElementById('barcodeNumber').value.trim();
             
-            if (!preview.innerHTML) {
-                alert('먼저 바코드를 생성해주세요.');
+            if (!barcodeInput) {
+                alert('바코드 번호를 입력해주세요.');
+                return;
+            }
+
+            const cleanedBarcode = barcodeInput.replace(/[^\d]/g, '');
+
+            if (cleanedBarcode.length !== 13) {
+                alert('바코드 번호는 13자리 숫자여야 합니다.');
+                return;
+            }
+
+            if (!cleanedBarcode.startsWith('880')) {
+                alert('한국 바코드는 880으로 시작해야 합니다.');
+                return;
+            }
+
+            const barcode12 = cleanedBarcode.slice(0, 12);
+            const providedCheckDigit = parseInt(cleanedBarcode[12]);
+            const calculatedCheckDigit = calculateCheckDigit(barcode12);
+
+            if (providedCheckDigit !== calculatedCheckDigit) {
+                const correctBarcode = barcode12 + calculatedCheckDigit;
+                document.getElementById('barcodeNumber').value = correctBarcode;
+                alert(`체크섬이 수정되었습니다. 새로운 바코드 번호: ${correctBarcode}`);
                 return;
             }
 
@@ -324,34 +353,31 @@ fill`);
 
             const barcodeContainer = document.createElement('div');
             barcodeContainer.className = 'barcode-item';
-            barcodeContainer.style.textAlign = 'left'; // 왼쪽 정렬로 변경
 
             try {
                 const canvas = document.createElement('canvas');
                 
-                // 바코드 생성 옵션 수정
-                JsBarcode(canvas, barcodeInput, {
+                JsBarcode(canvas, cleanedBarcode, {
                     format: "EAN13",
                     width: 2,
-                    height: 80, // 높이 조정
+                    height: 100,
                     displayValue: true,
-                    fontSize: 12,
-                    margin: 0, // 여백 제거
-                    textMargin: 0
+                    fontSize: 14,
+                    margin: 10
                 });
 
                 const productName = document.getElementById('productName').value;
                 const productNameEng = document.getElementById('productNameEng').value;
+                const optionName = document.getElementById('optionName').value;
+                const optionNameEng = document.getElementById('optionNameEng').value;
                 const productNumber = document.getElementById('productNumber').value;
                 const lotNumber = document.getElementById('lotNumber').value;
 
-                // 텍스트 레이아웃 수정
                 barcodeContainer.innerHTML = `
-                    <div style="margin-bottom: 15px; font-size: 12px;">
-                        <p style="margin: 5px 0;">상품명: ${productName} / ${productNameEng}</p>
-                        <p style="margin: 5px 0;">상품번호: ${productNumber}</p>
-                        <p style="margin: 5px 0;">로트번호: ${lotNumber}</p>
-                    </div>
+                    <p><strong>상품명:</strong> ${productName} / ${productNameEng}</p>
+                    <p><strong>옵션명:</strong> ${optionName} / ${optionNameEng}</p>
+                    <p><strong>상품번호:</strong> ${productNumber}</p>
+                    <p><strong>로트번호:</strong> ${lotNumber}</p>
                 `;
                 barcodeContainer.appendChild(canvas);
                 previewDiv.appendChild(barcodeContainer);
@@ -361,7 +387,7 @@ fill`);
             }
         }
 
-        // SVG 저장 함수 수정
+        // SVG 저장 함수
         function exportToSVG() {
             const preview = document.getElementById('barcodePreview');
             const barcodeNumber = document.getElementById('barcodeNumber').value;
@@ -372,33 +398,32 @@ fill`);
             }
 
             try {
+                const canvas = preview.querySelector('canvas');
                 const productName = document.getElementById('productName').value;
                 const productNameEng = document.getElementById('productNameEng').value;
                 const productNumber = document.getElementById('productNumber').value;
                 const lotNumber = document.getElementById('lotNumber').value;
 
-                // SVG 템플릿 수정
                 const svgData = `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
 <svg xmlns="http://www.w3.org/2000/svg" 
      version="1.1"
-     width="300" 
-     height="200">
+     width="${canvas.width}" 
+     height="${canvas.height + 60}">
     <style>
         text { font-family: Arial, sans-serif; font-size: 12px; }
     </style>
     <g id="ProductInfo">
-        <text x="10" y="20">상품명: ${productName} / ${productNameEng}</text>
-        <text x="10" y="40">상품번호: ${productNumber}</text>
-        <text x="10" y="60">로트번호: ${lotNumber}</text>
+        <text x="0" y="15">상품명: ${productName} / ${productNameEng}</text>
+        <text x="0" y="30">상품번호: ${productNumber}</text>
+        <text x="0" y="45">로트번호: ${lotNumber}</text>
     </g>
-    <g id="Barcode" transform="translate(10, 80)">
+    <g id="Barcode" transform="translate(0, 60)">
         <path d="${generateBarcodeVectorPathSVG(barcodeNumber)}" fill="black"/>
-        <text x="0" y="100" font-size="12">${barcodeNumber}</text>
+        <text x="${canvas.width/2}" y="${canvas.height + 15}" text-anchor="middle" font-family="monospace">${barcodeNumber}</text>
     </g>
 </svg>`;
 
-                // 파일 저장 로직
                 const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement('a');
@@ -414,7 +439,7 @@ fill`);
             }
         }
 
-        // EPS 저장 함수 수정
+        // EPS 저장 함수
         function exportToEPS() {
             const preview = document.getElementById('barcodePreview');
             const barcodeNumber = document.getElementById('barcodeNumber').value;
@@ -425,41 +450,44 @@ fill`);
             }
 
             try {
+                const canvas = preview.querySelector('canvas');
+                if (!canvas) {
+                    throw new Error('바코드를 찾을 수 없습니다.');
+                }
+
+                // 제품 정보 가져오기
                 const productName = document.getElementById('productName').value;
                 const productNameEng = document.getElementById('productNameEng').value;
+                const optionName = document.getElementById('optionName').value;
+                const optionNameEng = document.getElementById('optionNameEng').value;
                 const productNumber = document.getElementById('productNumber').value;
                 const lotNumber = document.getElementById('lotNumber').value;
 
-                // EPS 템플릿 수정
+                // EPS 데이터 생성
                 const epsData = `%!PS-Adobe-3.0 EPSF-3.0
-%%BoundingBox: 0 0 300 200
+%%BoundingBox: 0 0 ${canvas.width} ${canvas.height + 100}
 %%Creator: Barcode Generator
 %%Title: ${barcodeNumber}
 %%EndComments
 
-/Arial findfont 12 scalefont setfont
+/Arial-Bold findfont 12 scalefont setfont
 0 0 0 setrgbcolor
 
-% 제품 정보
-10 180 moveto (상품명: ${productName} / ${productNameEng}) show
-10 160 moveto (상품번호: ${productNumber}) show
-10 140 moveto (로트번호: ${lotNumber}) show
-
-% 바코드
-gsave
-10 60 translate
+% 바코드 생성
 ${generateBarcodeVectorPathEPS(barcodeNumber)}
-grestore
 
-% 바코드 번호
-/Arial findfont 12 scalefont setfont
-10 40 moveto (${barcodeNumber}) show
+% 텍스트 정보
+10 ${canvas.height + 20} moveto (상품명: ${productName} / ${productNameEng}) show
+10 ${canvas.height + 40} moveto (옵션명: ${optionName} / ${optionNameEng}) show
+10 ${canvas.height + 60} moveto (상품번호: ${productNumber}) show
+10 ${canvas.height + 80} moveto (로트번호: ${lotNumber}) show
+10 ${canvas.height + 100} moveto (바코드: ${barcodeNumber}) show
 
 %%EOF`;
 
-                // 파일 저장 로직
                 const blob = new Blob([epsData], { type: 'application/postscript' });
                 const url = URL.createObjectURL(blob);
+                
                 const link = document.createElement('a');
                 link.href = url;
                 link.download = `${barcodeNumber}.eps`;
